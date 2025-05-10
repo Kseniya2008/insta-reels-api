@@ -1,3 +1,3 @@
-#!/bin/bash
+#!/bin/sh
 playwright install
 python api.py
