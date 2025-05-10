@@ -58,7 +58,18 @@ def get_reels_data(profile_url, max_reels=100):
 
             browser.close()
             sorted_top = sorted(reels, key=lambda r: r['views'], reverse=True)
-            return sorted_top[:10]
+            top10 = sorted_top[:10]
+
+            # Отправляем результат в Make
+            try:
+                requests.post(
+                    "https://hook.us2.make.com/n1ko8dtvjhn7vt32igsdhoobmtc5jnce",
+                    json=top10
+                )
+            except Exception as e:
+                print("Ошибка отправки в Make:", e)
+
+            return top10
 
         except Exception as e:
             browser.close()
@@ -77,15 +88,7 @@ def get_reels():
         return jsonify({"error": "Некорректный URL"}), 400
 
     result = get_reels_data(url, max_reels=100)
-
-    # Отправляем результат на Webhook в Make
-    webhook_url = "https://hook.us2.make.com/n1ko8dtvjhn7vt32igsdhoobmtc5jnce"
-    try:
-        requests.post(webhook_url, json={"reels": result})
-    except Exception as e:
-        print(f"Ошибка при отправке в Make: {e}")
-
-    return jsonify({"status": "ok", "sent_to_make": True})
+    return jsonify(result)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
