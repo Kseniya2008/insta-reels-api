@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from playwright.sync_api import sync_playwright
 import re
+import requests
 
 app = Flask(__name__)
 CORS(app)
@@ -25,7 +26,6 @@ def get_reels_data(profile_url, max_reels=100):
             page.goto(profile_url, timeout=60000)
             page.wait_for_timeout(3000)
 
-            # Прокручиваем страницу вниз
             scrolls = 0
             while len(links) < max_reels and scrolls < 30:
                 page.mouse.wheel(0, 3000)
@@ -57,7 +57,6 @@ def get_reels_data(profile_url, max_reels=100):
                     })
 
             browser.close()
-            # сортировка по просмотрам
             sorted_top = sorted(reels, key=lambda r: r['views'], reverse=True)
             return sorted_top[:10]
 
@@ -67,7 +66,7 @@ def get_reels_data(profile_url, max_reels=100):
 
 @app.route("/")
 def index():
-    return "🟢 Сервер работает. Отправь POST-запрос на /get-reels с JSON: {'url': 'https://instagram.com/...' }"
+    return "🟢 Сервер работает. Отправь POST-запрос на /get-reels с JSON: {'url': 'https://instagram.com/...'}"
 
 @app.route("/get-reels", methods=["POST"])
 def get_reels():
@@ -78,7 +77,15 @@ def get_reels():
         return jsonify({"error": "Некорректный URL"}), 400
 
     result = get_reels_data(url, max_reels=100)
-    return jsonify(result)
+
+    # Отправляем результат на Webhook в Make
+    webhook_url = "https://hook.us2.make.com/n1ko8dtvjhn7vt32igsdhoobmtc5jnce"
+    try:
+        requests.post(webhook_url, json={"reels": result})
+    except Exception as e:
+        print(f"Ошибка при отправке в Make: {e}")
+
+    return jsonify({"status": "ok", "sent_to_make": True})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
