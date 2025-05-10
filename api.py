@@ -14,7 +14,7 @@ def extract_views(text):
         return 0
 
 def get_reels_data(profile_url, max_reels=100):
-    links = []
+    reels = []
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -25,6 +25,7 @@ def get_reels_data(profile_url, max_reels=100):
             page.goto(profile_url, timeout=60000)
             page.wait_for_timeout(3000)
 
+            links = []
             scrolls = 0
             while len(links) < max_reels and scrolls < 30:
                 page.mouse.wheel(0, 3000)
@@ -35,29 +36,32 @@ def get_reels_data(profile_url, max_reels=100):
                 urls = reel_elems.evaluate_all("els => els.map(e => e.href)")
                 links = list(dict.fromkeys(urls))
 
-            reels = []
             for link in links[:max_reels]:
                 try:
                     page.goto(link, timeout=30000)
                     page.wait_for_timeout(2000)
+
                     views_elem = page.locator('span:has-text("просмотров")')
                     views_text = views_elem.first.inner_text()
                     views_num = extract_views(views_text)
+
+                    time_elem = page.locator("time")
+                    time_attr = time_elem.get_attribute("datetime")
+
                     reels.append({
                         "url": link,
                         "views": views_num,
-                        "views_text": views_text
+                        "date": time_attr or "не найдена"
                     })
                 except:
                     reels.append({
                         "url": link,
                         "views": 0,
-                        "views_text": "не удалось получить"
+                        "date": "ошибка"
                     })
 
             browser.close()
-            sorted_top = sorted(reels, key=lambda r: r['views'], reverse=True)
-            return sorted_top[:10]
+            return sorted(reels, key=lambda r: r['views'], reverse=True)[:10]
 
         except Exception as e:
             browser.close()
@@ -65,7 +69,7 @@ def get_reels_data(profile_url, max_reels=100):
 
 @app.route("/")
 def index():
-    return "🟢 Сервер работает. Отправь POST-запрос на /get-reels с JSON: {'url': 'https://instagram.com/...' }"
+    return "🟢 Сервер работает. Отправь POST-запрос на /get-reels с JSON: {'url': 'https://instagram.com/...'}"
 
 @app.route("/get-reels", methods=["POST"])
 def get_reels():
@@ -75,7 +79,7 @@ def get_reels():
     if not url or not url.startswith("http"):
         return jsonify({"error": "Некорректный URL"}), 400
 
-    result = get_reels_data(url, max_reels=100)
+    result = get_reels_data(url)
     return jsonify(result)
 
 if __name__ == "__main__":
